@@ -1,0 +1,321 @@
+const mongoose = require('mongoose');
+const mongodb = require('mongodb');
+const express = require('express');
+const bodyParser = require('body-parser');
+const { response } = require('express');
+const application = express();
+// Make a Connection  to the datbase
+mongoose.connect('mongodb+srv://denisned:kS9-eccq-ZX78bT@cluster0.om4wz.mongodb.net/cs230', { useNewUrlParser: true });
+const db = mongoose.connection;
+
+db.on('error', (error) => console.error(error))
+application.use(express.json());
+application.use(express.static(__dirname));
+application.use(bodyParser.json()) // applicationlication/json
+application.use(bodyParser.urlencoded({ extended: true }))
+/* Build schemas for the data to be inserted into
+This is done for users, Addresses */
+const UserAddress = new mongoose.Schema({
+//Schema for Address 
+    Address_1: { type: String, require: true },
+    Address_2: String,
+    Town: { type: String, require: true },
+    County: { type: String, require: true },
+    Eircode: String
+});
+//Schema for user with address connected
+const Schema = new mongoose.Schema({
+    title: String,
+    name: { type: String, require: true },
+    surname: { type: String, require: true },
+    Mobile: { type: String, require: true },
+    Email: { type: String, require: true },
+    address: UserAddress,
+
+});
+//Phone schemas
+const Phone = new mongoose.Schema({
+    Manufacturer: { type: String, require: true },
+    Model: { type: String, require: true },
+    Price: { type: String, require: true },
+});
+//Order Schema 
+const Order = new mongoose.Schema({
+    user: Schema,
+    Item: Phone
+});
+
+
+
+
+const User = mongoose.model('User', Schema);
+const Address = mongoose.model('Address', UserAddress);
+const Phone_Acc = mongoose.model('Phone', Phone);
+const Orders = mongoose.model('Order', Order);
+ // teh create seaction, we create a function that inserts the data inside of the database
+
+application.get('/', async(req, res) => {
+  try{
+      const user = await User.find()
+      res.json(user)
+  }catch (err){
+      res.status(500).json({message : err.message})
+  }
+})
+
+//creating A User
+application.post('/', async (req, res) => {
+    const address2 = new Address({
+        Address_1: req.body.Address_1,
+        Address_2: req.body.Address_2,
+        Town: req.body.Town,
+        County: req.body.County,
+        Eircode: req.body.Eircode
+    })
+    const user = new User({
+        title: req.body.title,
+        name: req.body.name,
+        surname: req.body.surname,
+        Mobile: req.body.Mobile,
+        Email: req.body.Emai,
+        address: address2 
+    })
+
+    try {
+        const newUsr = await user.save();
+        const newAdr = await address2.save();
+        res.status(201).json(newUsr)
+    } catch (err) {
+        res.status(400).json({ message: err.message })
+
+    }
+
+})
+// creating a phone acc
+application.post('/Phones', async (req, res) => {
+    const Phone = new Phone_Acc({
+        Manufacturer: req.body.Manufacturer,
+        Model: req.body.Model,
+        Price: req.body.Price
+    })
+    try {
+        const newPhone = await Phone.save();
+        res.status(201).json(newPhone)
+    } catch (err) {
+        res.status(400).json({ message: err.message })
+
+    }
+
+})
+
+// delete one user
+application.delete('/User/:id',getU, async (req,res)=>{
+    try{
+        await res.user.remove()
+        res.json({message:"Deleted User"})
+
+    }catch(err){
+        res.status(500).json({message:err.message})
+    }
+
+})
+// delete one OrDER
+application.delete('/Order/:id',gOrd, async (req,res)=>{
+    try{
+        await res.order.remove()
+        res.json({message:"Deleted Order"})
+
+    }catch(err){
+        res.status(500).json({message:err.message})
+    }
+
+})
+// delete one phone
+application.delete('/Phone/:id',getP, async (req,res)=>{
+    try{
+        await res.phone.remove()
+        res.json({message:"Deleted Phone"})
+
+    }catch(err){
+        res.status(500).json({message:err.message})
+    }
+
+})
+application.post('/Orders', async (req, res) => {
+    const order = new Orders({
+        user: {
+            title: req.body.title,
+            name: req.body.name,
+            surname: req.body.surname,
+            Mobile: req.body.Mobile,
+            Email_Address: req.body.Email_Address,
+            address: {
+                Address_Line_1: req.body.Address_Line_1,
+                Address_Line_2: req.body.Address_Line_2,
+                Town: req.body.Town,
+                County_City: req.body.County_City,
+                Eircode: req.body.Eircode
+            }
+        },
+        Item: {
+            Manufacturer: req.body.Manufacturer,
+            Model: req.body.Model,
+            Price: req.body.Price
+        }
+
+
+    })
+    try {
+        const newOrder = await order.save();
+        res.status(201).json(newOrder)
+    } catch (err) {
+        res.status(400).json({ message: err.message })
+
+    }
+
+})
+// delete one address
+application.delete('/Address/:id',getA, async (req,res)=>{
+    try{
+        await res.address.remove()
+        res.json({message:"Deleted address"})
+
+    }catch(err){
+        res.status(500).json({message:err.message})
+    }
+
+})
+
+
+//get user from the table
+async function gOrd(req,res,next){
+    let order
+    try{
+        order = await Orders.findById(req.params.id)
+        if(order==null){
+            return res.status(404).json({message:"cannot find user"})
+        }
+    }catch(err){
+        return res.status(500).json({message:err.message})
+    }
+    res.order=order
+    next()
+}
+//get User from tha table
+async function getU(req,res,next){
+    let user
+    try{
+        user = await User.findById(req.params.id)
+        if(user==null){
+            return res.status(404).json({message:"cannot find user"})
+        }
+    }catch(err){
+        return res.status(500).json({message:err.message})
+    }
+    res.user=user
+    next()
+}
+//get phone accessorie from the table
+async function getP(req,res,next){
+    let phone
+    try{
+        phone = await Phone_Acc.findById(req.params.id)
+        if(phone==null){
+            return res.status(404).json({message:"cannot find user"})
+        }
+    }catch(err){
+        return res.status(500).json({message:err.message})
+    }
+    res.phone=phone
+    next()
+}
+//get Address from tha table
+async function getA(req,res,next){
+    let address
+    try{
+        address = await Address.findById(req.params.id)
+        if(address==null){
+            return res.status(404).json({message:"cannot find user"})
+        }
+    }catch(err){
+        return res.status(500).json({message:err.message})
+    }
+    res.address=address
+    next()
+}
+
+application.patch('/User/:id',getU, async (req,res)=>{
+    if(req.body.name != null)
+    {
+        res.user.name= req.body.name;
+    }
+    if(req.body.Mobile!= null)
+    {
+        res.user.Mobile= req.body.Mobile;
+    }
+    if(req.body.Email!= null)
+    {
+        res.user.Email= req.body.Email;
+    }
+    try
+    {
+        const updateUser = await res.user.save()
+        res.json(updateUser)
+    }
+    catch (err)
+    {
+        res.status(400).json({message: err.message})
+    }
+})
+
+
+application.patch('/Phones/:id',getP, async (req,res)=>{
+    if(req.body.Price!= null)
+    {
+        res.phone.Price= req.body.Price;
+    }
+    try
+    {
+        const updatePhone = await res.phone.save()
+        res.json(updatePhone)
+    }
+    catch (err)
+    {
+        res.status(400).json({message: err.message})
+    }
+})
+
+application.patch('/Orders/:id',gOrd, async (req,res)=>{
+    if(req.body.Price!= null)
+    {
+        res.order.Price= req.body.Price;
+    }
+    try
+    {
+        const updatePhone = await res.phone.save()
+        res.json(updatePhone)
+    }
+    catch (err)
+    {
+        res.status(400).json({message: err.message})
+    }
+})
+
+// gets the user
+application.get('/User/:id',getU, async(req, res) => {
+    res.send(res.user)
+})
+// gets the user
+application.get('/Order/:id',gOrd, async(req, res) => {
+    res.send(res.order)
+})
+// gets the user
+application.get('/Address/:id',getA, async(req, res) => {
+    res.send(res.address)
+})
+// gets the user
+application.get('/Phones/:id',getP, async(req, res) => {
+    res.send(res.phone)
+})
+
+application.listen(2000, () => console.log("Server Started !!"))
